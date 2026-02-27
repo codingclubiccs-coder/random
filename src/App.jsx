@@ -28,10 +28,18 @@ const CONFETTI_SCRIPT = "https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist
 const HTML2CANVAS_SCRIPT = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
 
 const DEFAULT_TEAMS = [
-  "SYNTAX", "Techmates", "Binary Beasts", "Code Crusaders",
-  "Cyber Sentinels", "Data Dynamos", "Logic Lords", "Pixel Pioneers",
-  "Quantum Questers", "Script Sorcerers", "Stack Smashers", "Web Wizards",
-  "Array Avengers", "Cloud Captains", "Dev Defenders", "Git Guardians"
+  "SYNTAX", "Techmates", "Trignometry",
+"Innovates",
+"Creatorzz",
+"Stuart little",
+"Nexa",
+"WARRIORS",
+"Team crazyz",
+"Trinity",
+"Fets Luck",
+"DeShaNo",
+"Luna",
+"TM_AMF"
 ];
 
 const COLORS = {
