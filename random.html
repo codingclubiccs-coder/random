@@ -1,0 +1,383 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Trophy, 
+  RotateCcw, 
+  Play, 
+  Maximize, 
+  Download, 
+  Users, 
+  X, 
+  Settings2, 
+  CheckCircle2,
+  AlertCircle,
+  Zap,
+  Target,
+  Lock,
+  Eye,
+  MousePointer2
+} from 'lucide-react';
+
+/**
+ * Exodus Hack-Jam Team Randomizer - Mystery Selection Edition
+ * Logic: Ensures "SYNTAX" and "Techmates" stay together.
+ * Interaction: Teams are selected, then they choose from 4 mystery group boxes.
+ * Special: For SYNTAX/Techmates, all 4 boxes lead to the same pre-synced group.
+ */
+
+const CONFETTI_SCRIPT = "https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js";
+const HTML2CANVAS_SCRIPT = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+
+const DEFAULT_TEAMS = [
+  "SYNTAX", "Techmates", "Binary Beasts", "Code Crusaders",
+  "Cyber Sentinels", "Data Dynamos", "Logic Lords", "Pixel Pioneers",
+  "Quantum Questers", "Script Sorcerers", "Stack Smashers", "Web Wizards",
+  "Array Avengers", "Cloud Captains", "Dev Defenders", "Git Guardians"
+];
+
+const COLORS = {
+  primary: "#C40000",
+  secondary: "#F5E6C8",
+  accent: "#1A1A1A"
+};
+
+const App = () => {
+  const [teamsInput, setTeamsInput] = useState(DEFAULT_TEAMS.join('\n'));
+  const [teamAssignments, setTeamAssignments] = useState({}); // { teamName: groupIdx }
+  const [revealedTeams, setRevealedTeams] = useState(new Set());
+  const [viewMode, setViewMode] = useState('setup'); // 'setup', 'reveal', 'results'
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [error, setError] = useState("");
+  const [shuffledTeamList, setShuffledTeamList] = useState([]);
+  const [currentlySelectingTeam, setCurrentlySelectingTeam] = useState(null);
+
+  const resultsRef = useRef(null);
+
+  useEffect(() => {
+    const scripts = [CONFETTI_SCRIPT, HTML2CANVAS_SCRIPT];
+    scripts.forEach(src => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      document.body.appendChild(script);
+    });
+  }, []);
+
+  const calculateGroups = (list) => {
+    let pool = [...list].sort(() => Math.random() - 0.5);
+    const pairNames = ["syntax", "techmates"];
+    const actualPair = pool.filter(t => pairNames.includes(t.toLowerCase()));
+    const others = pool.filter(t => !pairNames.includes(t.toLowerCase()));
+
+    let groups = [[], [], [], []];
+    const pairGrpIdx = Math.floor(Math.random() * 4);
+    
+    // Assign Pair
+    if (actualPair.length === 2) {
+      groups[pairGrpIdx].push(...actualPair);
+      groups[pairGrpIdx].push(others.pop(), others.pop());
+      for (let i = 0; i < 4; i++) {
+        if (i === pairGrpIdx) continue;
+        groups[i] = [others.pop(), others.pop(), others.pop(), others.pop()];
+      }
+    } else {
+      for (let i = 0; i < 4; i++) groups[i] = pool.splice(0, 4);
+    }
+
+    const mapping = {};
+    groups.forEach((group, gIdx) => {
+      group.forEach(team => {
+        mapping[team] = gIdx;
+      });
+    });
+    return { mapping };
+  };
+
+  const startMysteryReveal = () => {
+    const list = teamsInput.split('\n').map(t => t.trim()).filter(t => t !== "");
+    if (list.length !== 16) {
+      setError(`Exactly 16 teams required. Currently: ${list.length}`);
+      return;
+    }
+    setError("");
+
+    const { mapping } = calculateGroups(list);
+    setTeamAssignments(mapping);
+    setShuffledTeamList(list.sort(() => Math.random() - 0.5));
+    setRevealedTeams(new Set());
+    setCurrentlySelectingTeam(null);
+    setViewMode('reveal');
+  };
+
+  const handlePickTeam = (teamName) => {
+    if (revealedTeams.has(teamName)) return;
+    setCurrentlySelectingTeam(teamName);
+  };
+
+  const handleChooseGroup = (selectionIdx) => {
+    if (!currentlySelectingTeam) return;
+    
+    const teamName = currentlySelectingTeam;
+    const newRevealed = new Set(revealedTeams);
+    newRevealed.add(teamName);
+    setRevealedTeams(newRevealed);
+    setCurrentlySelectingTeam(null);
+
+    if (newRevealed.size === 16) {
+      setTimeout(() => {
+        setViewMode('results');
+        triggerConfetti();
+      }, 1000);
+    }
+  };
+
+  const triggerConfetti = () => {
+    if (window.confetti) {
+      window.confetti({
+        particleCount: 200,
+        spread: 90,
+        origin: { y: 0.6 },
+        colors: [COLORS.primary, COLORS.secondary, '#000000']
+      });
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  const quickGenerate = () => {
+    const list = teamsInput.split('\n').map(t => t.trim()).filter(t => t !== "");
+    if (list.length !== 16) {
+      setError(`Exactly 16 teams required. Currently: ${list.length}`);
+      return;
+    }
+    const { mapping } = calculateGroups(list);
+    setTeamAssignments(mapping);
+    setRevealedTeams(new Set(list));
+    setViewMode('results');
+    triggerConfetti();
+  };
+
+  const getGroupLetter = (team) => String.fromCharCode(65 + teamAssignments[team]);
+
+  return (
+    <div className="min-h-screen font-sans selection:bg-[#F5E6C8] selection:text-[#C40000] overflow-x-hidden" style={{ backgroundColor: COLORS.primary, color: COLORS.secondary }}>
+      {/* Background blobs */}
+      <div className="fixed top-[-10%] left-[-5%] w-[40vw] h-[40vw] bg-[#F5E6C8] opacity-10 rounded-full blur-3xl pointer-events-none animate-pulse" />
+      <div className="fixed bottom-[-10%] right-[-5%] w-[50vw] h-[50vw] bg-[#F5E6C8] opacity-5 rounded-full blur-3xl pointer-events-none" />
+
+      <header className="relative z-10 pt-12 pb-8 px-6 text-center">
+        <div className="inline-block p-2 mb-4 border-2 border-[#F5E6C8] rounded-full px-6 text-sm uppercase tracking-widest font-bold bg-black/20">
+          EXODUS Hack-Jam 2026
+        </div>
+        <h1 className="text-5xl md:text-8xl font-black italic uppercase tracking-tighter leading-none mb-2" style={{ fontFamily: 'serif' }}>
+          GROUP <span className="text-black">CHALLENGE</span>
+        </h1>
+      </header>
+
+      <main className="relative z-10 max-w-7xl mx-auto px-6 pb-24">
+        
+        {viewMode === 'setup' && (
+          <div className="max-w-3xl mx-auto bg-white/5 backdrop-blur-xl rounded-[2.5rem] p-10 border border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-8">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-4 bg-[#F5E6C8] rounded-2xl text-[#C40000] shadow-lg">
+                <Users size={32} strokeWidth={2.5} />
+              </div>
+              <div>
+                <h2 className="text-3xl font-black uppercase italic leading-none">The Roster</h2>
+                <p className="text-[#F5E6C8]/60 font-bold uppercase tracking-widest text-xs mt-1">16 Competitors Required</p>
+              </div>
+            </div>
+
+            <textarea
+              value={teamsInput}
+              onChange={(e) => setTeamsInput(e.target.value)}
+              className="w-full h-80 bg-black/40 border-2 border-[#F5E6C8]/20 rounded-3xl p-8 text-2xl text-[#F5E6C8] placeholder-[#F5E6C8]/20 focus:outline-none focus:border-[#F5E6C8] transition-all resize-none font-mono mb-6"
+              placeholder="Paste team names here..."
+            />
+
+            {error && (
+              <div className="flex items-center gap-3 mb-8 p-5 bg-black/60 border-l-4 border-red-500 text-red-400 rounded-xl animate-bounce">
+                <AlertCircle size={24} />
+                <span className="font-bold text-lg">{error}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <button onClick={quickGenerate} className="group flex flex-col items-center justify-center p-6 bg-black/40 border-2 border-white/10 rounded-3xl hover:bg-black/60 transition-all">
+                <Zap className="mb-2 text-[#F5E6C8]" />
+                <span className="font-black uppercase italic text-xl">Instant Result</span>
+              </button>
+              <button onClick={startMysteryReveal} className="group flex flex-col items-center justify-center p-6 bg-[#F5E6C8] text-black rounded-3xl hover:scale-[1.03] active:scale-95 transition-all shadow-2xl">
+                <Target className="mb-2" />
+                <span className="font-black uppercase italic text-xl">Interactive Selection</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'reveal' && (
+          <div className="animate-in fade-in duration-700">
+            {/* Modal for Group Selection */}
+            {currentlySelectingTeam && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in zoom-in duration-300">
+                <div className="max-w-4xl w-full text-center">
+                  <h3 className="text-2xl font-bold uppercase tracking-widest text-[#F5E6C8]/60 mb-2">Team Selection</h3>
+                  <div className="text-6xl md:text-8xl font-black italic uppercase mb-12 text-[#F5E6C8] leading-tight">
+                    {currentlySelectingTeam}
+                  </div>
+                  
+                  <p className="text-xl font-bold uppercase italic mb-8 opacity-80">Choose your mystery group box:</p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    {[0, 1, 2, 3].map((idx) => {
+                      const isPair = ["syntax", "techmates"].includes(currentlySelectingTeam.toLowerCase());
+                      // Logic: For pair, we show the same result regardless, but keep it hidden until click
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => handleChooseGroup(idx)}
+                          className="group relative h-48 bg-[#F5E6C8]/10 border-2 border-[#F5E6C8]/30 rounded-[2rem] flex items-center justify-center hover:bg-[#F5E6C8] hover:scale-105 transition-all duration-300"
+                        >
+                          <div className="text-6xl font-black italic text-[#F5E6C8] group-hover:text-[#C40000]">?</div>
+                          <div className="absolute inset-0 border-4 border-transparent group-hover:border-black/10 rounded-[2rem] transition-all" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  <button 
+                    onClick={() => setCurrentlySelectingTeam(null)}
+                    className="mt-12 text-sm font-black uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity"
+                  >
+                    Cancel Selection
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-black uppercase italic text-[#F5E6C8]/80">Select a team to choose their group</h2>
+              <div className="mt-4 flex justify-center gap-4">
+                 <div className="flex items-center gap-2 text-xs font-bold uppercase bg-black/20 px-4 py-2 rounded-full border border-white/5">
+                    <Lock size={14} className="text-[#F5E6C8]" /> Synced: SYNTAX & Techmates
+                 </div>
+                 <div className="flex items-center gap-2 text-xs font-bold uppercase bg-black/20 px-4 py-2 rounded-full border border-white/5">
+                    <Target size={14} className="text-[#F5E6C8]" /> {revealedTeams.size} / 16 Done
+                 </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {shuffledTeamList.map((team, idx) => {
+                const isRevealed = revealedTeams.has(team);
+                const isPair = ["syntax", "techmates"].includes(team.toLowerCase());
+                
+                return (
+                  <button
+                    key={idx}
+                    disabled={isRevealed}
+                    onClick={() => handlePickTeam(team)}
+                    className={`relative h-44 rounded-[2rem] transition-all duration-500 overflow-hidden flex flex-col items-center justify-center p-6 ${isRevealed ? 'bg-[#F5E6C8] scale-95 opacity-50' : 'bg-black/40 border-2 border-[#F5E6C8]/20 hover:border-[#F5E6C8] hover:-translate-y-2 hover:shadow-2xl'}`}
+                  >
+                    {isRevealed ? (
+                      <>
+                        <div className="text-[10px] font-black uppercase text-black/40 mb-1">Assigned</div>
+                        <div className="text-6xl font-black italic uppercase text-[#C40000]">
+                          {getGroupLetter(team)}
+                        </div>
+                        <div className="text-[8px] font-bold uppercase text-black/30 mt-2 truncate w-full text-center">{team}</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="mb-3 text-[#F5E6C8]/40">
+                          {isPair ? <Lock size={20} /> : <MousePointer2 size={20} />}
+                        </div>
+                        <span className="text-lg font-black uppercase tracking-tight text-[#F5E6C8] text-center line-clamp-2">
+                          {team}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'results' && (
+          <div className="animate-in fade-in slide-in-from-bottom-12 duration-1000">
+             <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
+               <div>
+                 <h2 className="text-5xl md:text-7xl font-black italic uppercase leading-none">FINAL DRAW</h2>
+                 <p className="font-bold text-[#F5E6C8]/50 uppercase tracking-[0.4em] mt-2">The Battleground is Set</p>
+               </div>
+               <div className="flex gap-4">
+                  <button onClick={toggleFullscreen} className="p-5 bg-black text-[#F5E6C8] rounded-3xl hover:bg-[#F5E6C8] hover:text-black transition-all shadow-xl"><Maximize/></button>
+                  <button onClick={() => setViewMode('setup')} className="flex items-center gap-3 px-8 py-5 bg-[#F5E6C8] text-black font-black uppercase italic rounded-3xl hover:scale-105 active:scale-95 transition-all shadow-2xl">
+                    <RotateCcw size={24} /> New Draft
+                  </button>
+               </div>
+             </div>
+
+             <div ref={resultsRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+               {[0, 1, 2, 3].map((idx) => (
+                 <div key={idx} className="group bg-[#F5E6C8] rounded-[2.5rem] p-10 shadow-2xl hover:-translate-y-4 transition-all duration-500 border-b-[12px] border-black/10">
+                    <div className="mb-10 text-center">
+                       <span className="text-black/30 text-xs font-black uppercase tracking-[0.3em]">Section</span>
+                       <h3 className="text-8xl font-black italic uppercase text-[#C40000] leading-none -mt-2">
+                         {String.fromCharCode(65 + idx)}
+                       </h3>
+                    </div>
+                    <div className="space-y-4">
+                      {Object.entries(teamAssignments)
+                        .filter(([_, gIdx]) => gIdx === idx)
+                        .map(([team, _], tIdx) => (
+                          <div key={tIdx} className="bg-white p-4 rounded-2xl shadow-sm flex items-center gap-4 group-hover:scale-[1.05] transition-transform duration-300">
+                            <div className="w-10 h-10 flex-shrink-0 bg-[#C40000] text-white rounded-xl flex items-center justify-center font-black italic">{tIdx + 1}</div>
+                            <div className="text-black font-black uppercase text-sm tracking-tighter truncate">{team}</div>
+                          </div>
+                      ))}
+                    </div>
+                 </div>
+               ))}
+             </div>
+          </div>
+        )}
+      </main>
+
+      <footer className="relative z-10 py-12 px-6 border-t border-white/5 bg-black/40 mt-20">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between opacity-40">
+           <div className="text-center md:text-left mb-6 md:mb-0">
+             <div className="font-black italic uppercase text-xl">Exodus Hack-Jam</div>
+             <div className="text-xs uppercase font-bold tracking-widest">Selection System v4.0</div>
+           </div>
+           <div className="flex gap-8 text-[10px] font-black uppercase tracking-[0.2em]">
+             <span>Mystery Box Protocol</span>
+             <span>Hard-Coded Pair Sync: Active</span>
+           </div>
+        </div>
+      </footer>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes zoom-in { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes slide-in-from-bottom-8 { from { transform: translateY(2rem); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
+        .animate-in { animation: var(--tw-duration, 500ms) cubic-bezier(0, 0, 0.2, 1) both; }
+        .fade-in { animation-name: fade-in; }
+        .zoom-in { animation-name: zoom-in; }
+        .slide-in-from-bottom-8 { animation-name: slide-in-from-bottom-8; }
+        .slide-in-from-bottom-12 { animation-name: slide-in-from-bottom-8; animation-duration: 1000ms; }
+      `}} />
+    </div>
+  );
+};
+
+export default App;
