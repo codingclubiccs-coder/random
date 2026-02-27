@@ -45,7 +45,7 @@ const DEFAULT_TEAMS = [
 ];
 
 const COLORS = {
-  primary: "#C40000",
+  primary: "#C40001",
   secondary: "#F5E6C8",
   accent: "#1A1A1A",
   blackTrans: "rgba(0, 0, 0, 0.4)",
