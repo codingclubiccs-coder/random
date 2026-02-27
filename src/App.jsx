@@ -39,7 +39,9 @@ const DEFAULT_TEAMS = [
 "Fets Luck",
 "DeShaNo",
 "Luna",
-"TM_AMF"
+"TM_AMF",
+"DAOS",
+"Vortex"
 ];
 
 const COLORS = {
