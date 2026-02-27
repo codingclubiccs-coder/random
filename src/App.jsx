@@ -286,8 +286,8 @@ const App = () => {
                     ) : (
                       <>
                         <div className="team-icon">
-                          {isPair ? <MousePointer2 size={20} /> : <MousePointer2 size={20} />}
-                        </div>
+                            <MousePointer2 size={20} />
+                          </div>
                         <span className="team-name-label">{team}</span>
                       </>
                     )}
